@@ -1,14 +1,25 @@
 import subprocess
 import requests
-import socket
 import time
 import os
+import threading
 
 # ===== CONFIG =====
 WEBHOOK_URL = "Put your Webhook APP LINK HERE"
 SERVER_PORT = 19132
 SERVER_PATH = r"Put your FILE Directory HERE"
-# ==================
+
+# ===== PLAYER COUNT CONFIG =====
+MAX_PLAYERS  = 10   # Match this to max-players in server.properties
+
+# ===== PING CONFIG =====
+PING_ON_ONLINE  = "<@&YOUR_ROLE"   # Who to ping when server is ONLINE
+PING_ON_OFFLINE = "<@&YOUR_ROLE>"   # Who to ping when server is OFFLINE
+PING_ON_CRASH   = "<@&YOUR_ROLE>"   # Who to ping when server CRASHES
+
+server_started = False
+player_count   = 0
+players_online = []
 
 def get_tailscale_ip():
     try:
@@ -20,8 +31,11 @@ def get_tailscale_ip():
     except:
         return "Unable to get Tailscale IP"
 
-def send_discord(title, description, color):
+def send_discord(title, description, color, ping=""):
+    """Send a Discord webhook message with optional ping."""
     payload = {
+        # Ping is sent as plain content so Discord actually notifies the user
+        "content": ping if ping else "",
         "embeds": [{
             "title": title,
             "description": description,
@@ -33,9 +47,11 @@ def send_discord(title, description, color):
     requests.post(WEBHOOK_URL, json=payload)
 
 def main():
+    global server_started, player_count, players_online
+
     tailscale_ip = get_tailscale_ip()
 
-    # Send Server Starting notification
+    # Send Starting notification (no ping)
     send_discord(
         title="🟡 Server is Starting...",
         description=(
@@ -43,10 +59,10 @@ def main():
             f"**Port:** `{SERVER_PORT}`\n"
             f"**Status:** Starting up, please wait..."
         ),
-        color=0xFFA500  # Orange
+        color=0xFFA500
     )
 
-    # Start the Minecraft server
+    # Start Minecraft Server
     print("Starting Minecraft Bedrock Server...")
     process = subprocess.Popen(
         SERVER_PATH,
@@ -57,52 +73,78 @@ def main():
         bufsize=1
     )
 
-    server_started = False
-
-    # Monitor the server output
     for line in process.stdout:
         print(line, end="")
 
-        # Detect server fully started
+        # Server fully started
         if "Server started." in line and not server_started:
             server_started = True
+
             send_discord(
                 title="🟢 Server is Online!",
                 description=(
                     f"**Tailscale IP:** `{tailscale_ip}`\n"
-                    f"**Port:** `{SERVER_PORT}`\n\n"
+                    f"**Port:** `{SERVER_PORT}`\n"
+                    f"**Players:** `{player_count}/{MAX_PLAYERS}`\n\n"
                     f"**How to join:**\n"
-                    f"Add server in Minecraft with:\n"
                     f"```\nIP: {tailscale_ip}\nPort: {SERVER_PORT}\n```"
                 ),
-                color=0x00FF00  # Green
+                color=0x00FF00,
+                ping=PING_ON_ONLINE
             )
 
-        # Detect player joined
+        # Player joined
         if "Player connected:" in line:
             player = line.split("Player connected:")[-1].strip().split(",")[0]
+            player_count += 1
+            players_online.append(player)
+
             send_discord(
                 title="✅ Player Joined",
-                description=f"**{player}** joined the server!",
-                color=0x00BFFF  # Blue
+                description=(
+                    f"**{player}** joined the server!\n"
+                    f"**Players Online:** `{player_count}/{MAX_PLAYERS}`\n"
+                    f"**Online Now:** "
+                    f"{', '.join(players_online) if players_online else 'None'}"
+                ),
+                color=0x00BFFF
             )
 
-        # Detect player left
+        # Player left
         if "Player disconnected:" in line:
             player = line.split("Player disconnected:")[-1].strip().split(",")[0]
+            player_count = max(0, player_count - 1)
+            if player in players_online:
+                players_online.remove(player)
+
             send_discord(
                 title="👋 Player Left",
-                description=f"**{player}** left the server.",
-                color=0xFF6347  # Red-orange
+                description=(
+                    f"**{player}** left the server.\n"
+                    f"**Players Online:** `{player_count}/{MAX_PLAYERS}`\n"
+                    f"**Still Online:** "
+                    f"{', '.join(players_online) if players_online else 'None'}"
+                ),
+                color=0xFF6347
             )
 
-    # Server stopped/crashed
     process.wait()
-    if process.returncode == 0:
+    # For debugging purposes
+    print(f"[DEBUG] Server exited with code: {process.returncode}")
+
+# Server stopped
+    server_started = False
+    player_count   = 0
+    players_online = []
+    # Fix unwanted crashes
+    clean_exit_codes = [0, 1]
+
+    if process.returncode in clean_exit_codes:
         send_discord(
             title="🔴 Server Stopped",
             description="The Minecraft server has been shut down normally.",
-            color=0xFF0000  # Red
+            color=0xFF0000,
+            ping=PING_ON_OFFLINE
         )
     else:
         send_discord(
@@ -112,9 +154,9 @@ def main():
                 f"**Exit code:** `{process.returncode}`\n"
                 f"Please check your server for errors."
             ),
-            color=0x8B0000  # Dark red
+            color=0x8B0000,
+            ping=PING_ON_CRASH
         )
-
 if __name__ == "__main__":
     main()
 
@@ -124,4 +166,6 @@ if __name__ == "__main__":
 # python start_server.py 
 # or
 # run it As it is
-# Have using this simple Utility 
+# Have fun using this simple Utility
+# Version 2.0
+# with player count! 

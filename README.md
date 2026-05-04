@@ -15,6 +15,12 @@ A simple Python script that starts your Minecraft Bedrock Dedicated Server and s
 
 ---
 
+## ✨ Features V2.0
+- 👥 Notifies Discord how many players are currently playing
+- ❗ Notifies Discord roles assigned
+
+---
+
 ## 📋 Requirements
 
 - Windows PC
@@ -104,6 +110,18 @@ Once connected to Tailscale, add the server in Minecraft:
 | Player Left | 🟠 Red-Orange | Player name |
 | Server Stopped | 🔴 Red | Shutdown message |
 | Server Crashed | 💥 Dark Red | Exit code + error info |
+
+## ✨ Features V2.0
+
+When someone joins the server
+
+| Players | 1/10 | Message |
+| John Doe | ✅ | John Doe Join the server |
+
+When someone leaves the server
+
+| Players | 0/10 | Message |
+| John Doe | 👋 | John Doe Left the server |
 
 ---
 
