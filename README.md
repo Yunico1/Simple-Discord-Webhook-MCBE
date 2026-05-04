@@ -116,11 +116,13 @@ Once connected to Tailscale, add the server in Minecraft:
 When someone joins the server
 
 | Players | 1/10 | Message |
+|-------|-------|---------|
 | John Doe | ✅ | John Doe Join the server |
 
 When someone leaves the server
 
 | Players | 0/10 | Message |
+|-------|-------|---------|
 | John Doe | 👋 | John Doe Left the server |
 
 ---
